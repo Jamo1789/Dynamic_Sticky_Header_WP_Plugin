@@ -40,8 +40,8 @@ Class DynamicStickyHeader {
 
         //show custom database in RESTAPI
         add_action( 'rest_api_init', function () {
-          $namespace = 'test/v1';
-          $route     = '/testing';
+          $namespace = 'additionalsettings/v1';
+          $route     = '/settings';
   
           register_rest_route($namespace, $route, array(
               'methods'   => WP_REST_Server::READABLE,
@@ -269,12 +269,13 @@ function dynamicStickyHeaderEditorHTML(){
 
               <!--put the if condtion chech here -->
               <?php
-              
+                $queryforadsth = $wpdb->get_var("SELECT Additional_Header_Value FROM $table_name WHERE As_id = 1");
                 $true_or_false_AdditionalDSH = $wpdb->get_var( 
                 "SELECT Additional_Header_On_Off
                  FROM $table_name
                  WHERE As_id = 1         
                  ");
+                
               if($true_or_false_AdditionalDSH == 'true') { 
               ?>
 
@@ -294,7 +295,7 @@ function dynamicStickyHeaderEditorHTML(){
             <div id="AdditionalSettingsFieldsForDSH" style="display:none;">
             <label class="InputFieldFOrDSHAdditionalSettings">
               <p>Type your menu element's parent classname here</p>
-                <input type="text" name="TextFieldFOrDSHAdditionalSettings">
+                <input type="text" name="TextFieldFOrDSHAdditionalSettings" value="<?php echo $queryforadsth ?>">
             </label>
           </div>
     
@@ -356,11 +357,7 @@ function dynamicStickyHeaderEditorHTML(){
 
             </script>
           </form>
-
-
           </div>
-
-
     </body>
 
 

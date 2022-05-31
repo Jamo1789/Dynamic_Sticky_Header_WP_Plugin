@@ -2,7 +2,7 @@ addEventListener('load', () => {
     //var adsthClassName;
     async function loadNames() {
         //deliver additional classname from backend
-        const url = '/wp-json/test/v1/testing'
+        const url = '/wp-json/additionalsettings/v1/settings'
         const response = await fetch(url);
         const names = await response.json();
         //pickup the new value
