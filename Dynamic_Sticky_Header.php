@@ -1,6 +1,5 @@
 <?php
 
-
 /**
  * Plugin Name: Dynamic Sticky Header
  * Plugin URI:
@@ -13,6 +12,9 @@
 
 
 if( ! defined( 'ABSPATH' ) ) exit;
+require_once plugin_dir_path(__FILE__) . '/PHP/AdditionalDSH.php';
+
+
 
 /*
 *This program is free software: you can redistribute it and/or modify it under the terms of the
@@ -36,7 +38,30 @@ Class DynamicStickyHeader {
         add_action('admin_menu', array($this, 'dynamicStickyHeaderSettingsMenu'));
         add_action('wp_loaded', array($this, 'dynamicStickyHeaderOnActivate'));
 
+        //show custom database in RESTAPI
+        add_action( 'rest_api_init', function () {
+          $namespace = 'test/v1';
+          $route     = '/testing';
+  
+          register_rest_route($namespace, $route, array(
+              'methods'   => WP_REST_Server::READABLE,
+              'callback'  => function () {
+                  global $wpdb;
+                  $table_name = $wpdb->prefix.'AdditionalDSH';
+                  
+                  $query = "SELECT  Additional_Header_Value FROM $table_name";
+                  $results = $wpdb->get_results($query);
+                  return $results;
+              },
+              'permission_callback' => '__return_true',
+              'args' => array()
+          ));
+      });
+      
+
     }
+
+
 
     function dynamicStickyHeaderSettingsMenu(){
 
@@ -45,27 +70,54 @@ Class DynamicStickyHeader {
 
     function dynamicStickyHeaderOnActivate() {
 
+
       //Make database connection
       global $wpdb;
       require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+      $table = $wpdb->prefix.'DynamicHeader';
+      $true_or_false = $wpdb->get_var( "SELECT Dynamic_Header_On_Off FROM $table");
+     
+
+      $table_name = $wpdb->prefix.'AdditionalDSH';
+      $true_or_false_AdditionalDSH = $wpdb->get_var( "SELECT Additional_Header_On_Off FROM $table_name");
+      $charset_collate = "DEFAULT CHARACTER SET {$wpdb->charset} COLLATE {$wpdb->collate}";
+
       dbDelta("CREATE TABLE $this->tablename (
         setting_id INT(2) NOT NULL,
         Dynamic_Header_On_Off varchar(60) NOT NULL DEFAULT '',
         PRIMARY KEY  (setting_id)
       ) $this->charset;");
+        //Create db for additional settings
+        $sql = "CREATE TABLE {$table_name} (
+        As_id INT(2) unsigned NOT NULL auto_increment,
+        Additional_Header_On_Off varchar(60) NOT NULL DEFAULT '',
+        Additional_Header_Value varchar(20) NOT NULL default '',
+        PRIMARY KEY  (As_id)
+        )
+        {$charset_collate};";
 
-      $table = $wpdb->prefix.'DynamicHeader';
-      $true_or_false = $wpdb->get_var( "SELECT Dynamic_Header_On_Off FROM $table");
+        dbDelta($sql);
+
+      //Check if DSH has data
 
       if($true_or_false == 'true') {
         $dynamic_sticky_header_path = plugins_url( 'js/Dynamic_Sticky_header.js', __FILE__ );
-
-
         //enqueue script
         wp_enqueue_script(
         "DynamicStickyHeader",
         $dynamic_sticky_header_path
+        );
 
+      }
+
+      //Check if DSH has data
+      
+      if($true_or_false_AdditionalDSH == 'true') {
+        $additional_dynamic_sticky_header_path = plugins_url( 'js/AdditionalDSH.js', __FILE__ );
+        //enqueue script
+        wp_enqueue_script(
+        "A_DynamicStickyHeader",
+        $additional_dynamic_sticky_header_path
         );
 
       }
@@ -73,6 +125,7 @@ Class DynamicStickyHeader {
 
 
     function dynamicStickyHeaderHandleForm() {
+      
 
         global $wpdb;
         $table = $wpdb->prefix.'DynamicHeader';
@@ -89,6 +142,7 @@ Class DynamicStickyHeader {
             $data = array('setting_id' => '1','Dynamic_Header_On_Off' => "true");
             $wpdb->update($table,$data,$where,$format);
 
+
             ?>
               <div class="updated">
             <p>Your Dynamic Sticky Header is turned on</p>
@@ -98,8 +152,6 @@ Class DynamicStickyHeader {
 
           }
 
-        //if database has no record insert data to db
-        else {
 
             global $wpdb;
             $table = $wpdb->prefix.'DynamicHeader';
@@ -114,7 +166,7 @@ Class DynamicStickyHeader {
         </div>
 
           <?php
-          }
+          
      }  //if database has no record and user sends an empty input, set dynamic header to false
         if(empty($_POST['enableDynamicStickyHeader'])) {
 
@@ -162,7 +214,7 @@ function dynamicStickyHeaderEditorHTML(){
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <body>
+    <body onload="runThisOnLoadForState()">
 
     <?php
      global $wpdb;
@@ -174,21 +226,26 @@ function dynamicStickyHeaderEditorHTML(){
             //Give db info for HTML elements
 
             $table = $wpdb->prefix.'DynamicHeader';
-            $true_or_false = $wpdb->get_var( "SELECT Dynamic_Header_On_Off FROM $table");
+            $true_or_false = $wpdb->get_var( 
+            "SELECT Dynamic_Header_On_Off
+             FROM $table
+             WHERE setting_id = 1         
+             ");
 
+          
             if($true_or_false == 'true') {
 
             ?>
             <h2>Disable Dynamic Sticky Header</h2>
                   <label class="switch">
-                  <input type="checkbox" name="enableDynamicStickyHeader" value="Dynamic_Sticky_Header_On" checked>
+                  <input id="checkedDSHSwitch" type="checkbox" name="enableDynamicStickyHeader" onclick="closeADSHSettings()" value="Dynamic_Sticky_Header_On" checked >
                   <span class="slider round"></span>
             </label> <?php }
 
             else {?>
               <h2>Enable Dynamic Sticky Header</h2>
             <label class="switch">
-                  <input type="checkbox" name="enableDynamicStickyHeader" value="dynamicstickyheaderon">
+                  <input type="checkbox" name="enableDynamicStickyHeader" value="dynamicstickyheaderon" onclick="closeADSHSettings()" >
                   <span class="slider round"></span>
             </label> <?php
             }
@@ -198,10 +255,110 @@ function dynamicStickyHeaderEditorHTML(){
               </tbody>
             </table>
             </div>
+            <!-- additional settings -->
+
+           <?php 
+              $additionalDSHClassName = $_POST['TextFieldFOrDSHAdditionalSettings'];
+              $table_name = $wpdb->prefix.'AdditionalDSH';
+              //$additionalDSHClassName = !empty($_POST['TextFieldFOrDSHAdditionalSettings']) ? : die('ERROR: Name is required');
+           
+              if ($_POST['justsubmittedAdditionalSettings'] == "true") handleAdditionalSettings($additionalDSHClassName) ?>
+            <input type="hidden" name="justsubmittedAdditionalSettings" value="true">
+              <hr style="margin-top: 15px;">
+              <h3>Additional Settings</h3>
+
+              <!--put the if condtion chech here -->
+              <?php
+              
+                $true_or_false_AdditionalDSH = $wpdb->get_var( 
+                "SELECT Additional_Header_On_Off
+                 FROM $table_name
+                 WHERE As_id = 1         
+                 ");
+              if($true_or_false_AdditionalDSH == 'true') { 
+              ?>
+
+            <label style="display: block;" id="ADSHinput" class="switch">
+                  <input id="ADSHSwitch"  type="checkbox" name="enableAdditionalDynamicStickyHeaderSettings" value="AdditionaldynamicstickyheaderSettingsOn" onclick="openDSHSettings()" checked>
+                  <span  class="slider round"></span>
+            </label>
+            <?php } else { ?>
+            
+              <label style="display: block;" id="ADSHinput" class="switch">
+                  <input id="ADSHSwitch"  type="checkbox" name="enableAdditionalDynamicStickyHeaderSettings" value="AdditionaldynamicstickyheaderSettingsOn" onclick="openDSHSettings()">
+                  <span  class="slider round"></span>
+            </label>
+            <?php } ?>
 
 
-            <input type="submit" name="submit" id="submit" class="button button-primary" value="Save Changes">
+            <div id="AdditionalSettingsFieldsForDSH" style="display:none;">
+            <label class="InputFieldFOrDSHAdditionalSettings">
+              <p>Type your menu element's parent classname here</p>
+                <input type="text" name="TextFieldFOrDSHAdditionalSettings">
+            </label>
+          </div>
+    
+          <br>
+
+            <input style="margin-top: 20px;" type="submit" name="submit" id="submit" class="button button-primary" value="Save Changes">
           </form>
+
+            <!--PHP check if database has record and switch is turned off dont show additional settings -->
+  
+
+            <!--js for hiding and showing additional menu - not separate file needed for this--->
+            <script>
+
+            
+
+              let runThisOnLoadForState = () => {
+              let x = document.getElementById("AdditionalSettingsFieldsForDSH");
+              let y = document.getElementById("ADSHSwitch");
+
+                if(y.checked){
+                  
+                x.style.display = "block";
+                }
+              }
+
+              let openDSHSettings = () => {
+                
+                var x = document.getElementById("AdditionalSettingsFieldsForDSH");
+                if (x.style.display === "none"){
+                  x.style.display = "block";
+                  document.getElementsByClassName("switch")[0].style.display="none";
+                } 
+                 else {
+                  x.style.display = "none";
+                  document.getElementsByClassName("switch")[0].style.display="block";
+                }
+
+                var y = document.getElementById("checkedDSHSwitch");
+            
+                 y.checked = false;
+                               
+              }
+
+              let closeADSHSettings = () => {
+
+                
+                var x = document.getElementById("ADSHinput");
+                if (x.style.display === "block"){
+                  x.style.display = "none";
+                 
+                } else {
+                  x.style.display = "block";
+                  
+                }
+              
+              }
+              
+
+            </script>
+          </form>
+
+
+          </div>
 
 
     </body>

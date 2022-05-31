@@ -1,0 +1,20 @@
+
+addEventListener('DOMContentLoaded', () => {  
+var adsthClassName;
+
+let hohoo = (req, res) => {
+return Promise.resolve()
+.then(() => {return fetch('/wp-json/test/v1/testing')})
+.then(function (req) {return req.json()})
+.then((content) => {
+return adsthClassName =  JSON.stringify(content[0].Additional_Header_Value);
+//alert(adsthClassName)
+})//.then(alert(adsthClassName))
+//.catch(err => res.status(500).json({ message: err.message }));
+}
+
+
+hohoo();
+
+alert(adsthClassName)
+})
