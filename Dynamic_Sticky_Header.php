@@ -70,7 +70,6 @@ Class DynamicStickyHeader {
 
     function dynamicStickyHeaderOnActivate() {
 
-
       //Make database connection
       global $wpdb;
       require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -100,7 +99,7 @@ Class DynamicStickyHeader {
 
       //Check if DSH has data
 
-      if($true_or_false == 'true') {
+      if($true_or_false == 'true' && is_admin() == 0) {
         $dynamic_sticky_header_path = plugins_url( 'js/Dynamic_Sticky_header.js', __FILE__ );
         //enqueue script
         wp_enqueue_script(
@@ -110,9 +109,9 @@ Class DynamicStickyHeader {
 
       }
 
-      //Check if DSH has data
+      //Check if ADSH has data
       
-      if($true_or_false_AdditionalDSH == 'true') {
+      if($true_or_false_AdditionalDSH == 'true' && is_admin() == 0) {
         $additional_dynamic_sticky_header_path = plugins_url( 'js/AdditionalDSH.js', __FILE__ );
         //enqueue script
         wp_enqueue_script(
@@ -135,8 +134,7 @@ Class DynamicStickyHeader {
         //check if record exists in db
 
           if($count > 0) {
-            global $wpdb;
-            $table = $wpdb->prefix.'DynamicHeader';
+           
             $format = array('%d','%s');
             $where = [ 'setting_id' => '1' ];
             $data = array('setting_id' => '1','Dynamic_Header_On_Off' => "true");
@@ -152,9 +150,6 @@ Class DynamicStickyHeader {
 
           }
 
-
-            global $wpdb;
-            $table = $wpdb->prefix.'DynamicHeader';
             $format = array('%d','%s');
             $data = array('setting_id' => "1", 'Dynamic_Header_On_Off' => "true");
             $wpdb->insert($table,$data,$format);
@@ -172,7 +167,7 @@ Class DynamicStickyHeader {
 
           if ($count == 0) {
 
-
+            
             global $wpdb;
             $table = $wpdb->prefix.'Dynamic_Header_On_Off';
             $format = array('%d','%s');
@@ -315,11 +310,13 @@ function dynamicStickyHeaderEditorHTML(){
               let runThisOnLoadForState = () => {
               let x = document.getElementById("AdditionalSettingsFieldsForDSH");
               let y = document.getElementById("ADSHSwitch");
+             
 
                 if(y.checked){
                   
                 x.style.display = "block";
                 }
+
               }
 
               let openDSHSettings = () => {
